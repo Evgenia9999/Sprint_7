@@ -1,1 +1,6 @@
-RestAssuredGetAllureTest.class
+OrderApi.class
+CourierTest.class
+OrderCreationWithParametersTest.class
+OrderCreationTest.class
+BaseTest.class
+CourierApi.class

@@ -1,1 +1,3 @@
 org\example\Main.class
+model\CurierFullData.class
+model\PayLoad.class

@@ -1,26 +1,20 @@
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import model.CurierFullData;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.FixMethodOrder;
+import org.junit.runners.MethodSorters;
 import java.io.File;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.apache.http.HttpStatus.*;
 
-@TestMethodOrder(OrderAnnotation.class)
-public class CourierTest {
+
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+public class CourierTest extends BaseTest {
     private Integer courierId;
 
-    @Before
-    public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru/";
-    }
 
     @After
     public void cleanUp() {
@@ -31,122 +25,131 @@ public class CourierTest {
                     .when()
                     .delete("/api/v1/courier/" + courierId)
                     .then()
-                    .statusCode(200);
-
+                    .statusCode(SC_OK);
             courierId = null;
+
         }
     }
 
     @Test
-    @Order(1)
-    @DisplayName("Create new courier")
-    public void createCourierTest() {
-        File json = new File("src/test/resources/courierCardFullData.json");
+    public void test1_createCourier() {
+        CurierFullData fullData = new CurierFullData("RandomUser2", "2111", "Indian Spice 000");
 
-        Response createResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier");
-
+        CourierApi courierHelper = new CourierApi();
+        Response createResponse = courierHelper.createCourier(fullData);
         createResponse.then()
                 .assertThat()
-                .body("ok", equalTo(true))
+                .statusCode(SC_CREATED)
                 .and()
-                .statusCode(201);
+                .body("ok", equalTo(true));
+
     }
 
     @Test
-    @Order(2)
-    @DisplayName("Verify duplicate courier creation fails")
-    public void verifyDuplicateCourierTest() {
-        File json = new File("src/test/resources/courierCardFullData.json");
+    public void test2_verifyDuplicateCourier() {
+        CurierFullData fullData = new CurierFullData("RandomUser2", "2111", "Indian Spice 000");
 
-        Response duplicateResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier");
+        CourierApi courierHelper = new CourierApi();
+        Response duplicateResponse = courierHelper.createCourier(fullData);
 
         duplicateResponse.then()
                 .assertThat()
-                .body("message", equalTo("Этот логин уже используется. Попробуйте другой."))
+                .statusCode(SC_CONFLICT)
                 .and()
-                .statusCode(409);
+                .body("message", equalTo("Этот логин уже используется. Попробуйте другой."));
     }
 
     @Test
-    @Order(3)
-    @DisplayName("Error shown when field is missing")
-    public void errorWhenFieldIsMissingTest() {
-        File json = new File("src/test/resources/courierCardMissingData.json");
+    public void test3_errorWhenFieldIsMissing() {
+        CurierFullData fullData = new CurierFullData(null, "1234123", "Indian Spice 123");
 
-        Response createResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier");
-
+        CourierApi courierHelper = new CourierApi();
+        Response createResponse = courierHelper.createCourier(fullData);
         createResponse.then()
                 .assertThat()
-                .body("message", equalTo("Недостаточно данных для создания учетной записи"))
+                .statusCode(SC_BAD_REQUEST)
                 .and()
-                .statusCode(400);
+                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
     }
 
     @Test
-    @Order(4)
-    @DisplayName("Login and get courier ID")
-    public void loginAndGetIdTest() {
-        File json = new File("src/test/resources/courierLogin.json");
+    public void test4_errorWhenOnlyPasswordIsSent() {
+        CurierFullData fullData = new CurierFullData(null, "1234123", null);
 
-        Response loginResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier/login");
+        CourierApi courierHelper = new CourierApi();
+        Response createResponse = courierHelper.createCourier(fullData);
+        createResponse.then()
+                .assertThat()
+                .statusCode(SC_BAD_REQUEST)
+                .and()
+                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
+    }
 
+    @Test
+    public void test5_loginAndGetId() {
+       // CurierFullData fullData = new CurierFullData("RandomUser2", "2111", "Indian Spice 000");
+        CurierFullData data = new CurierFullData("RandomUser2", "2111", null);
+
+        CourierApi courierHelper = new CourierApi();
+        //courierHelper.createCourier(fullData);
+        Response loginResponse = courierHelper.courierLogin(data);
         loginResponse.then()
-                .statusCode(200)
+                .statusCode(SC_OK) // Changed from SC_CREATED to SC_OK (200)
                 .body("id", notNullValue());
 
         // Store courier ID for cleanup
         courierId = loginResponse.path("id");
+
     }
 
     @Test
-    @Order(5)
-    @DisplayName("Check error for incorrect input")
-    public void checkErrorForIncorrectInputTest() {
-        File json = new File("src/test/resources/IncorrectIpCourierLogin.json");
+    public void test6_checkErrorForIncorrectInput() {
+        CurierFullData data = new CurierFullData("RandomUser123", "999000", null);
 
-        Response loginResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier/login");
-
+        CourierApi courierHelper = new CourierApi();
+        Response loginResponse = courierHelper.courierLogin(data);
         loginResponse.then()
-                .statusCode(404)
+                .statusCode(SC_NOT_FOUND)
                 .body("message", equalTo("Учетная запись не найдена"));
-
     }
 
     @Test
-    @Order(5)
-    @DisplayName("Check error for empty input")
-    public void checkErrorForEmptyInputTest() {
-        File json = new File("src/test/resources/CourierLoginEmptyInput.json");
+    public void test7_checkErrorForIncorrectPassword() {
+        CurierFullData jsonWrongPassword = new CurierFullData("RandomUser", "999", null);
+        CurierFullData jsonCreateCourier = new CurierFullData("RandomUser", "1234123", "Indian Spice 123");
 
-        Response loginResponse = given()
-                .header("Content-type", "application/json")
-                .body(json)
-                .when()
-                .post("/api/v1/courier/login");
+        CourierApi courierHelper = new CourierApi();
+        courierHelper.createCourier(jsonCreateCourier);
+        Response loginResponse = courierHelper.courierLogin(jsonWrongPassword);
 
         loginResponse.then()
-                .statusCode(400)
-                .body("message", equalTo("Недостаточно данных для входа"));
+                .statusCode(SC_NOT_FOUND)
+                .body("message", equalTo("Учетная запись не найдена"));
+    }
 
+    @Test
+    public void test8_checkErrorForIncorrectLogin() {
+        CurierFullData jsonCreateCourier = new CurierFullData("RandomUser", "111", "Indian Spice 123");
+        CurierFullData jsonWrongLogin = new CurierFullData("Random", "1234123", null);
+
+        CourierApi courierHelper = new CourierApi();
+        courierHelper.createCourier(jsonCreateCourier);
+        Response loginResponse = courierHelper.courierLogin(jsonWrongLogin);
+
+        loginResponse.then()
+                .statusCode(SC_NOT_FOUND)
+                .body("message", equalTo("Учетная запись не найдена"));
+    }
+
+    @Test
+    public void test9_checkErrorForEmptyInput() { // Renamed from test5_ to test6_ to avoid duplicate method name
+
+        CurierFullData data = new CurierFullData(null, "111", null);
+
+        CourierApi courierHelper = new CourierApi();
+        Response loginResponse = courierHelper.courierLogin(data);
+        loginResponse.then()
+                .statusCode(SC_BAD_REQUEST)
+                .body("message", equalTo("Недостаточно данных для входа"));
     }
 }
