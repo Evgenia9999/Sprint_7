@@ -1,3 +1,4 @@
+import io.qameta.allure.Step;
 import io.restassured.response.Response;
 import model.PayLoad;
 import org.junit.Test;
@@ -8,9 +9,10 @@ import org.json.JSONArray;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import static io.restassured.RestAssured.given;
 import static org.apache.http.HttpStatus.SC_CREATED;
+import static org.apache.http.HttpStatus.SC_OK;
 import static org.hamcrest.Matchers.*;
+
 
 @RunWith(Parameterized.class)
 public class OrderCreationWithParametersTest extends BaseTest { // Removed 'static'
@@ -54,19 +56,22 @@ public class OrderCreationWithParametersTest extends BaseTest { // Removed 'stat
                 orderRequest.put("color", new JSONArray(colors));
             }
 
-            Response response = given()
-                    .header("Content-type", "application/json")
-                    .body(orderRequest.toString())
-                    .when()
-                    .post("/api/v1/orders");
 
-            response.then()
-                    .assertThat()
-                    .statusCode(SC_CREATED)
-                    .body("track", notNullValue());
+            OrderApi orderHelper = new OrderApi();
+            Response response = orderHelper.getOrderList(orderRequest);
+
+            verifyResponseIsNotNull(response);
 
         } catch (Exception e) {
             throw new RuntimeException("Error processing JSON file: " + e.getMessage());
         }
+    }
+
+    @Step("Verify that response is not null")
+    private void verifyResponseIsNotNull(Response response) {
+        response.then()
+                .assertThat()
+                .statusCode(SC_CREATED)
+                .body("track", notNullValue());
     }
 }
